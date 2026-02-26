@@ -1,0 +1,137 @@
+================================================================================
+  CULTURA LAB.ia - Sistema de Gestão de Editais para Projetos Culturais
+================================================================================
+
+📋 COMO EXECUTAR A APLICAÇÃO:
+
+🎯 OPÇÃO PRINCIPAL (RECOMENDADA):
+   ► Clique duplo em: ABRIR_CULTURA_LAB.bat
+   ✓ Instala dependências automaticamente
+   ✓ Abre o navegador em http://localhost:8501
+
+OUTRAS OPÇÕES:
+
+Opção 2 - Execução Rápida:
+├─ Arquivo: RUN.bat
+├─ Uso: Clique duas vezes
+└─ Nota: Mais rápido, sem mensagens extras
+
+Opção 3 - Script VBScript:
+├─ Arquivo: CULTURA_LAB.vbs
+├─ Uso: Clique duas vezes
+└─ Nota: Executa sem janela de terminal
+
+Opção 4 - Criar Atalho no Desktop:
+├─ Arquivo: CRIAR_ATALHO_DESKTOP.vbs
+├─ Uso: Clique duplo uma vez
+└─ Resultado: Cria atalho na área de trabalho
+
+================================================================================
+📌 FUNCIONALIDADES:
+
+✓ Dashboard - Visualizar todos os projetos cadastrados
+✓ Novo Projeto - Criar projetos culturais vinculados a editais
+✓ Assistente IA (Rafa Ia) - Chat inteligente para montar proposta
+✓ Revisão e Orçamento - Editar textos, orçamento e exportar PDF/DOCX
+
+================================================================================
+⚙️ REQUISITOS:
+
+✓ Python 3.8+ instalado (https://www.python.org/)
+✓ Conexão com internet (para API Gemini)
+✓ Arquivo .env com GEMINI_API_KEY configurada
+
+================================================================================
+📂 ESTRUTURA DA PASTA:
+
+PROJETOS - IA/
+├── 🚀 ABRIR_CULTURA_LAB.bat        ← PRINCIPAL - Clique aqui!
+├── 🎨 RUN.bat                      ← Alternativa rápida
+├── 🔧 CULTURA_LAB.vbs              ← Alternativa VBScript
+├── 🔗 CRIAR_ATALHO_DESKTOP.vbs     ← Cria atalho no Desktop
+│
+├── 📄 app.py                       ← Aplicação Streamlit
+├── 💾 database.py                  ← Banco de dados
+├── 📦 requirements.txt             ← Dependências
+├── 🔐 .env                         ← Chaves de API
+├── 🗄️  ong_projetos.db             ← Dados do banco
+│
+├── 📋 COMO_USAR.txt                ← Este arquivo
+└── 📁 uploads/                     ← Arquivos enviados
+
+================================================================================
+🔧 COMO USAR:
+
+PRIMEIRA VEZ:
+1. Clique duplo em: ABRIR_CULTURA_LAB.bat
+2. Aguarde a mensagem "Iniciando Cultura LAB.ia..."
+3. O navegador abrirá automaticamente
+4. Pronto! Sistema está rodando em http://localhost:8501
+
+PRÓXIMAS VEZES:
+- Clique duplo em: ABRIR_CULTURA_LAB.bat
+- Ou use o atalho no Desktop (se criado)
+
+================================================================================
+⚡ ATALHOS ÚTEIS (Para Terminal/CMD):
+
+Navegar para a pasta:
+    cd "C:\Users\Usuário\OneDrive\Documents\PROJETOS - IA"
+
+Executar a aplicação:
+    streamlit run app.py
+
+Executar com porta customizada (se 8501 estiver em uso):
+    streamlit run app.py --server.port=8502
+
+Checar versão do Python:
+    python --version
+
+================================================================================
+🆘 TROUBLESHOOTING:
+
+❌ "Python não encontrado"
+   → Instale Python 3.8+: https://www.python.org/
+   → Marque "Add Python to PATH" durante instalação
+
+❌ "Módulo não encontrado"
+   → Execute: ABRIR_CULTURA_LAB.bat
+   → Ele instala as dependências automaticamente
+
+❌ "Chave da API não encontrada"
+   → Abra o arquivo .env
+   → Configure sua GEMINI_API_KEY
+   → Salve e tente novamente
+
+❌ "Porta 8501 já em uso"
+   → Abra Terminal em PROJETOS - IA
+   → Execute: streamlit run app.py --server.port=8502
+
+❌ "Erro ao fazer upload de PDF"
+   → Certifique-se que o PDF está acessível
+   → Verifique a chave do Gemini API
+
+================================================================================
+📝 RESUMO DOS ARQUIVOS EXECUTÁVEIS:
+
+NOS ARQUIVOS:
+  ✓ ABRIR_CULTURA_LAB.bat        ← ⭐ PRINCIPAL - Use este!
+  ✓ RUN.bat                      ← Alternativa rápida
+  ✓ CULTURA_LAB.vbs              ← Alternativa VBScript
+  ✓ CRIAR_ATALHO_DESKTOP.vbs     ← Para criar atalho no Desktop
+
+NO DESKTOP (após executar CRIAR_ATALHO_DESKTOP.vbs):
+  ✓ Cultura LAB.ia.lnk           ← Atalho para iniciar
+
+================================================================================
+🎯 PRÓXIMAS ETAPAS:
+
+1. Execute: ABRIR_CULTURA_LAB.bat
+2. Crie um novo projeto
+3. Configure um edital com PDF
+4. Converse com Rafa Ia (Assistente IA)
+5. Finalize o orçamento e exporte o PDF
+
+Para suporte ou dúvidas, consulte COMO_USAR.txt
+
+================================================================================
