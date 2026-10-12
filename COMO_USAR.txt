@@ -31,15 +31,13 @@ Opção 4 - Criar Atalho no Desktop:
 
 ✓ Dashboard - Visualizar todos os projetos cadastrados
 ✓ Novo Projeto - Criar projetos culturais vinculados a editais
-✓ Assistente IA (Rafa Ia) - Chat inteligente para montar proposta
 ✓ Revisão e Orçamento - Editar textos, orçamento e exportar PDF/DOCX
 
 ================================================================================
 ⚙️ REQUISITOS:
 
 ✓ Python 3.8+ instalado (https://www.python.org/)
-✓ Conexão com internet (para API Gemini)
-✓ Arquivo .env com GEMINI_API_KEY configurada
+✓ Conexão com internet na primeira execução (para instalar as dependências)
 
 ================================================================================
 📂 ESTRUTURA DA PASTA:
@@ -53,8 +51,7 @@ PROJETOS - IA/
 ├── 📄 app.py                       ← Aplicação Streamlit
 ├── 💾 database.py                  ← Banco de dados
 ├── 📦 requirements.txt             ← Dependências
-├── 🔐 .env                         ← Chaves de API
-├── 🗄️  ong_projetos.db             ← Dados do banco
+├── 🗄️  ong_projetos.db             ← Dados do banco (criado na primeira execução)
 │
 ├── 📋 COMO_USAR.txt                ← Este arquivo
 └── 📁 uploads/                     ← Arquivos enviados
@@ -98,18 +95,12 @@ Checar versão do Python:
    → Execute: ABRIR_CULTURA_LAB.bat
    → Ele instala as dependências automaticamente
 
-❌ "Chave da API não encontrada"
-   → Abra o arquivo .env
-   → Configure sua GEMINI_API_KEY
-   → Salve e tente novamente
-
 ❌ "Porta 8501 já em uso"
    → Abra Terminal em PROJETOS - IA
    → Execute: streamlit run app.py --server.port=8502
 
 ❌ "Erro ao fazer upload de PDF"
    → Certifique-se que o PDF está acessível
-   → Verifique a chave do Gemini API
 
 ================================================================================
 📝 RESUMO DOS ARQUIVOS EXECUTÁVEIS:
@@ -129,7 +120,7 @@ NO DESKTOP (após executar CRIAR_ATALHO_DESKTOP.vbs):
 1. Execute: ABRIR_CULTURA_LAB.bat
 2. Crie um novo projeto
 3. Configure um edital com PDF
-4. Converse com Rafa Ia (Assistente IA)
+4. Preencha os textos da proposta em Revisão e Orçamento
 5. Finalize o orçamento e exporte o PDF
 
 Para suporte ou dúvidas, consulte COMO_USAR.txt

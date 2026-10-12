@@ -9,7 +9,11 @@ set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
 REM Verificar se o Python está instalado
-python --version >nul 2>&1
+REM (o comando "python" pode ser apenas o atalho da Microsoft Store; "py" é o launcher do Python)
+set "PY=python"
+py --version >nul 2>&1
+if not errorlevel 1 set "PY=py"
+%PY% --version >nul 2>&1
 if errorlevel 1 (
     echo.
     echo ========================================
@@ -24,7 +28,7 @@ if errorlevel 1 (
 
 REM Verificar se os requirements estão instalados
 echo Verificando dependências...
-python -m pip install -q -r requirements.txt
+%PY% -m pip install -q -r requirements.txt
 
 REM Abrir a aplicação Streamlit
 echo.
@@ -37,6 +41,6 @@ echo.
 echo Pressione Ctrl+C para encerrar
 echo.
 
-python -m streamlit run app.py --logger.level=warning
+%PY% -m streamlit run app.py --logger.level=warning
 
 pause

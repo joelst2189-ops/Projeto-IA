@@ -1,0 +1,14 @@
+# Segredos (chave da API do Gemini)
+.env
+
+# Dados locais
+ong_projetos.db
+uploads/
+
+# Gerados automaticamente
+__pycache__/
+*.pyc
+
+# Configuração local e backups
+.claude/settings.local.json
+backup_*/

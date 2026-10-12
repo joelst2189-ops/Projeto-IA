@@ -1,25 +1,17 @@
-
+import pdfplumber
+import os
 import streamlit as st
 import sqlite3
 import pandas as pd
-import os
 import re
-import google.generativeai as genai
-from dotenv import load_dotenv
 from fpdf import FPDF
 from datetime import datetime, date
 from contextlib import contextmanager
 from io import BytesIO
 from docx import Document
+import database
 
 # --- Config ---
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
-else:
-    st.error("Chave da API do Gemini não encontrada no arquivo .env")
-
 st.set_page_config(
     page_title="Gestão de Projetos - Mãe Natureza",
     page_icon="🌱",
@@ -67,7 +59,14 @@ def get_db():
 
 
 def migrate_db():
-    """Adiciona colunas novas sem quebrar banco existente."""
+    """Cria as tabelas na primeira execução e adiciona colunas novas sem quebrar banco existente."""
+    with get_db() as conn:
+        tem_tabelas = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'projetos'"
+        ).fetchone()
+    if not tem_tabelas:
+        database.main()
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(projetos)")
@@ -86,12 +85,47 @@ def sanitize_filename(filename):
     filename = re.sub(r"[^\w\s\-_\.]", "", filename).strip()
     return filename or "arquivo"
 
+def analisar_pdf_edital(file_obj):
+    texto_completo = ""
+    try:
+        with pdfplumber.open(file_obj) as pdf:
+            for page in pdf.pages:
+                txt = page.extract_text()
+                if txt:
+                    texto_completo += txt + "\n"
+    except Exception as e:
+        return {"erro": str(e), "elegivel": False, "checklist": []}
+
+    texto_lower = texto_completo.lower()
+    
+    # Busca Elegibilidade (palavra inteira; "para" sem acento é a preposição, não o estado)
+    elegivel = bool(re.search(r"\b(santar[ée]m|pará|estado do para|nacional)\b", texto_lower))
+    
+    # Busca Checklist
+    palavras_chave = {
+        "Estatuto Social": ["estatuto"],
+        "Cartão CNPJ": ["cnpj"],
+        "CEBAS": ["cebas", "certificado de entidade beneficente"],
+        "Certidões Negativas": ["certidão", "certidões", "cnd", "regularidade fiscal"],
+        "Balanço Patrimonial": ["balanço patrimonial", "demonstrações contábeis"],
+        "Comprovante de Endereço": ["comprovante de endereço", "comprovante de residência"],
+        "Atestado de Funcionamento": ["atestado de funcionamento", "relatório de atividades"]
+    }
+    
+    checklist = []
+    for doc, keys in palavras_chave.items():
+        if any(k in texto_lower for k in keys):
+            checklist.append(doc)
+            
+    return {"erro": None, "elegivel": elegivel, "checklist": checklist}
+
+
 
 # --- Funções de dados ---
 
 def get_projetos():
     with get_db() as conn:
-        return pd.read_sql_query(
+        df = pd.read_sql_query(
             """SELECT p.id, p.titulo, p.autor, p.status, p.data_criacao,
                       e.nome_edital, e.data_limite
                FROM projetos p
@@ -99,6 +133,10 @@ def get_projetos():
                ORDER BY p.id DESC""",
             conn
         )
+    # O pandas 3 devolve NaN (e não None) para texto vazio; NaN passa em "if valor"
+    texto = df.columns.drop("id")
+    df[texto] = df[texto].astype(object).where(df[texto].notna(), None)
+    return df
 
 
 def get_projeto_by_id(projeto_id):
@@ -190,20 +228,6 @@ def delete_projeto(projeto_id):
         conn.execute("DELETE FROM orcamentos WHERE projeto_id = ?", (projeto_id,))
         conn.execute("DELETE FROM anexos WHERE projeto_id = ?", (projeto_id,))
         conn.execute("DELETE FROM projetos WHERE id = ?", (projeto_id,))
-
-
-# --- Gemini ---
-
-def get_gemini_model(system_instruction):
-    return genai.GenerativeModel("gemini-2.0-flash", system_instruction=system_instruction)
-
-
-def get_gemini_file(pdf_path):
-    """Faz upload do PDF para o Gemini, com cache por caminho na session."""
-    cache_key = f"gemini_file_{pdf_path}"
-    if cache_key not in st.session_state:
-        st.session_state[cache_key] = genai.upload_file(pdf_path, mime_type="application/pdf")
-    return st.session_state[cache_key]
 
 
 # --- UI Helpers ---
@@ -350,16 +374,39 @@ def setup_projeto():
 
     if edital_selection == 0:
         with st.expander("Cadastro de Novo Edital", expanded=True):
+            novo_pdf = st.file_uploader("PDF do Edital * (Upload para análise imediata)", type="pdf")
+            
+            if novo_pdf:
+                st.markdown("### Análise Automática do Edital")
+                with st.spinner("Analisando PDF..."):
+                    analise = analisar_pdf_edital(novo_pdf)
+                
+                if analise.get("erro"):
+                    st.error(f"Erro ao analisar o PDF: {analise['erro']}")
+                else:
+                    if analise["elegivel"]:
+                        st.success("✅ **Status de Elegibilidade:** Elegível (Santarém / Pará / Nacional identificados)")
+                    else:
+                        st.error("❌ **Status de Elegibilidade:** Não Elegível (Nenhuma menção à região encontrada)")
+                    
+                    if analise["checklist"]:
+                        st.info("**Checklist de Documentos Exigidos identificados:**")
+                        for item in analise["checklist"]:
+                            st.checkbox(item, value=False, key=f"chk_{item}")
+                    else:
+                        st.warning("Nenhum termo de documento obrigatório identificado no PDF.")
+                novo_pdf.seek(0)
+                
             with st.form("novo_edital_form"):
                 novo_nome = st.text_input("Nome do Edital *")
                 novo_orgao = st.text_input("Órgão Financiador")
                 nova_data = st.date_input("Data Limite de Submissão", value=None)
-                novo_pdf = st.file_uploader("PDF do Edital *", type="pdf")
 
                 if st.form_submit_button("Salvar Edital", type="primary"):
                     if novo_nome and novo_pdf:
                         safe = sanitize_filename(novo_pdf.name)
                         path = os.path.join(UPLOAD_DIR, safe)
+                        novo_pdf.seek(0)
                         with open(path, "wb") as f:
                             f.write(novo_pdf.getbuffer())
                         data_str = nova_data.strftime("%Y-%m-%d") if nova_data else None
@@ -405,102 +452,11 @@ def setup_projeto():
                             with open(path, "wb") as f:
                                 f.write(arq.getbuffer())
                             add_anexo(projeto_id, arq.name, path)
-                    st.success(f"✅ Projeto **'{titulo}'** criado! Agora use o **Assistente IA** para elaborar a proposta.")
+                    st.success(f"✅ Projeto **'{titulo}'** criado! Agora preencha a proposta em **Revisão e Orçamento**.")
                 else:
                     st.error("Nome do projeto e responsável são obrigatórios.")
     else:
         st.info("Selecione ou cadastre um edital acima para continuar.")
-
-
-def assistente_ia():
-    st.title("🤖 Chat com Rafa Ia")
-
-    projetos = get_projetos()
-    if projetos.empty:
-        st.warning("Nenhum projeto encontrado. Crie um projeto primeiro.")
-        return
-
-    projeto_id = st.selectbox(
-        "Selecione o Projeto",
-        options=projetos["id"],
-        format_func=lambda x: projetos[projetos["id"] == x]["titulo"].values[0]
-    )
-    projeto = get_projeto_by_id(projeto_id)
-    if not projeto:
-        return
-
-    edital = get_edital_by_id(projeto["edital_id"])
-
-    col_info, col_prazo = st.columns([3, 1])
-    with col_info:
-        st.info(f"Trabalhando em: **{projeto['titulo']}** | Edital: **{edital['nome_edital']}**")
-    with col_prazo:
-        mostrar_prazo(edital["data_limite"] if edital else None)
-
-    pdf_path = edital["arquivo_pdf_path"] if edital else None
-    if not pdf_path:
-        st.error("O edital não possui PDF vinculado. Cadastre o PDF na seção Novo Projeto.")
-        return
-    if not os.path.exists(pdf_path):
-        st.error(f"Arquivo PDF não encontrado: {pdf_path}")
-        return
-
-    st.markdown("---")
-
-    # Inicializar chat apenas quando muda de projeto
-    if "chat_session" not in st.session_state or st.session_state.get("current_project_id") != projeto_id:
-        st.session_state.current_project_id = projeto_id
-        st.session_state.messages = []
-
-        with st.spinner("Rafa Ia está lendo o Edital..."):
-            try:
-                gemini_file = get_gemini_file(pdf_path)
-
-                system_instruction = f"""
-                Você é a **Rafa Ia**, a inteligência artificial do {ORG_NAME}.
-                Seu objetivo é entrevistar o usuário para coletar informações e montar um projeto social/cultural.
-                Use o EDITAL fornecido como referência principal — verifique os requisitos, valores, prazos e critérios.
-
-                Conduza a entrevista em fases:
-                1. Ideia central (Justificativa) — contexto, problema e relevância
-                2. Objetivos — geral e específicos, alinhados ao edital
-                3. Público-alvo — quem será beneficiado e como
-
-                Seja simpática e use emojis moderadamente. Faça uma pergunta de cada vez.
-                Ao final, apresente um resumo completo para o usuário validar.
-                """
-
-                model = get_gemini_model(system_instruction)
-                st.session_state.chat = model.start_chat(history=[
-                    {"role": "user", "parts": [gemini_file, "Analise este edital e comece a entrevista."]}
-                ])
-                response = st.session_state.chat.send_message("Olá! Pode se apresentar e começar?")
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-                st.session_state.chat_session = True
-            except Exception as e:
-                st.error(f"Erro ao conectar com Rafa Ia: {e}")
-                return
-
-    # Histórico do chat
-    for msg in st.session_state.messages:
-        avatar = "🤖" if msg["role"] == "assistant" else "👤"
-        with st.chat_message(msg["role"], avatar=avatar):
-            st.markdown(msg["content"])
-
-    if prompt := st.chat_input("Fale com a Rafa Ia..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
-
-        if "chat" in st.session_state:
-            with st.chat_message("assistant", avatar="🤖"):
-                with st.spinner("Rafa Ia está digitando..."):
-                    try:
-                        response = st.session_state.chat.send_message(prompt)
-                        st.markdown(response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": response.text})
-                    except Exception as e:
-                        st.error(f"Erro na resposta: {e}")
 
 
 def revisao_orcamento():
@@ -534,7 +490,7 @@ def revisao_orcamento():
     with col_s1:
         status_atual = projeto["status"] if projeto else "Rascunho"
         st.markdown(f"**Status:** {status_badge(status_atual)}")
-        if projeto and projeto.get("autor"):
+        if projeto and dict(projeto).get("autor"):
             st.caption(f"Responsável: {projeto['autor']}")
     with col_s2:
         novo_status = st.selectbox(
@@ -579,32 +535,6 @@ def revisao_orcamento():
             if st.form_submit_button("💾 Salvar Textos", type="primary"):
                 update_projeto_textos(projeto_id, justificativa, objetivos, publico)
                 st.success("Textos salvos com sucesso!")
-
-        st.markdown("---")
-        st.subheader("✨ Análise da Rafa Ia")
-        if st.button("Analisar Proposta"):
-            with st.spinner("Rafa Ia está analisando..."):
-                texto = (
-                    f"Projeto: {projeto['titulo']}\n\n"
-                    f"Justificativa: {justificativa}\n\n"
-                    f"Objetivos: {objetivos}\n\n"
-                    f"Público-alvo: {publico}"
-                )
-                prompt = f"""
-                Você é uma avaliadora experiente de projetos sociais e culturais.
-                Analise o rascunho abaixo e dê feedback construtivo.
-                Foque em: Clareza, Impacto Social, Coerência e pontos de melhoria práticos.
-
-                {texto}
-
-                Apresente: pontos fortes, pontos de melhoria e sugestões concretas.
-                """
-                try:
-                    model = get_gemini_model("Avaliadora experiente de projetos sociais.")
-                    response = model.generate_content(prompt)
-                    st.info(response.text)
-                except Exception as e:
-                    st.error(f"Erro ao analisar: {e}")
 
     with tab2:
         st.subheader("Planilha Orçamentária")
@@ -707,7 +637,7 @@ def _gerar_pdf(projeto_id):
     if projeto["autor"]:
         pdf.cell(0, 7, _limpar_texto(f"Responsavel: {projeto['autor']}"), 0, 1, "L")
     pdf.cell(0, 7, _limpar_texto(f"Status: {projeto['status']}"), 0, 1, "L")
-    if projeto.get("data_criacao"):
+    if projeto and dict(projeto).get("data_criacao"):
         pdf.cell(0, 7, _limpar_texto(f"Criado em: {projeto['data_criacao']}"), 0, 1, "L")
     pdf.ln(4)
 
@@ -815,7 +745,7 @@ def main():
 
     page = st.sidebar.radio(
         "Navegação",
-        ["Dashboard", "Novo Projeto", "Assistente IA", "Revisão e Orçamento"],
+        ["Dashboard", "Novo Projeto", "Revisão e Orçamento"],
         key="page"
     )
 
@@ -823,8 +753,6 @@ def main():
         dashboard()
     elif page == "Novo Projeto":
         setup_projeto()
-    elif page == "Assistente IA":
-        assistente_ia()
     elif page == "Revisão e Orçamento":
         revisao_orcamento()
 
